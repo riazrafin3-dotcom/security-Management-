@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security Guard Shift & Attendance Management</title>
+  <!-- SheetJS for Excel Export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #2563eb;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --day-bg: #fef9c3;
+      --day-border: #eab308;
+      --night-bg: #e0e7ff;
+      --night-border: #4f46e5;
+      --extra-bg: #dcfce7;
+      --extra-border: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+    }
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    header h1 { margin: 0; font-size: 1.25rem; }
+    .container { max-width: 1320px; margin: 18px auto; padding: 0 15px; }
+    
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: var(--card);
+      padding: 14px;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .control-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    label { font-size: 0.88rem; font-weight: 600; color: var(--muted); }
+    input, select, button {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.92rem;
+    }
+    button {
+      background: var(--primary-light);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.15s;
+    }
+    button:hover { opacity: 0.92; }
+    button.secondary { background: #475569; }
+    button.success { background: #16a34a; }
+    button.danger { background: var(--danger); }
+    button.warning { background: var(--warning); }
+    button.sm { padding: 4px 8px; font-size: 0.8rem; }
+
+    /* Tabs */
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .tab-btn {
+      background: #e2e8f0;
+      color: var(--text);
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Shift Summary Cards Grid */
+    .shift-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .shift-card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      border-top: 5px solid var(--primary);
+    }
+    .shift-card.day { border-top-color: var(--day-border); }
+    .shift-card.night { border-top-color: var(--night-border); }
+    .shift-card.extra { border-top-color: var(--extra-border); }
+
+    .shift-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .shift-title { font-size: 1.08rem; font-weight: 700; }
+    .badge-count {
+      background: var(--primary);
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+    .shift-card.day .badge-count { background: #ca8a04; }
+    .shift-card.night .badge-count { background: #4338ca; }
+    .shift-card.extra .badge-count { background: #15803d; }
+
+    .duty-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    .duty-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 7px;
+      padding: 9px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .duty-item.is-extra-in-shift {
+      background: #f0fdf4;
+      border-left: 4px solid #16a34a;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin-left: 5px;
+    }
+    .tag-extra { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .tag-shift { background: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }
+    .tag-ot { background: #fef3c7; color: #92400e; }
+
+    /* Forms & Tables */
+    .card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
+    th { background: #f8fafc; font-weight: 700; }
+    tr:nth-child(even) { background: #fcfcfd; }
+    .empty-msg { color: var(--muted); font-style: italic; text-align: center; padding: 14px; }
+    .sub-breakdown { font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ সিকিউরিটি গার্ড শিফট ও হাজিরা ব্যবস্থাপনা</h1>
+  <div class="control-group">
+    <span id="fbStatus" style="font-size:0.82rem; background:rgba(255,255,255,0.18); padding:4px 10px; border-radius:6px;">Local + Firebase Sync Ready</span>
+    <button class="secondary sm" onclick="openConfigModal()">⚙️ Firebase সেটিংস</button>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Top Date & Supervisor Controls -->
+  <div class="top-bar">
+    <div class="control-group">
+      <div>
+        <label for="selectedDate">তারিখ:</label>
+        <input type="date" id="selectedDate" onchange="renderAll()" />
+      </div>
+      <div>
+        <label for="supervisorName">সুপারভাইজার:</label>
+        <select id="supervisorName" onchange="saveSupervisorPref()">
+          <option value="Supervisor 1">Supervisor 1</option>
+          <option value="Supervisor 2">Supervisor 2</option>
+          <option value="Supervisor 3">Supervisor 3</option>
+          <option value="Supervisor 4">Supervisor 4</option>
+          <option value="Supervisor 5">Supervisor 5</option>
+        </select>
+      </div>
+      <div>
+        <label for="searchEmp">সার্চ (ID / নাম):</label>
+        <input type="text" id="searchEmp" placeholder="ID বা নাম লিখুন..." oninput="renderAll()" />
+      </div>
+    </div>
+    <div class="control-group">
+      <button class="success" onclick="exportMonthlyExcel()">📥 মাসিক Excel ডাউনলোড</button>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('dashboard', this)">📋 দৈনিক শিফট ড্যাশবোর্ড</button>
+    <button class="tab-btn" onclick="switchTab('entry', this)">➕ ডিউটি এন্ট্রি (জেনারেল ও অতিরিক্ত)</button>
+    <button class="tab-btn" onclick="switchTab('guards', this)">👮 গার্ড তালিকা</button>
+    <button class="tab-btn" onclick="switchTab('pending', this)">⏳ পেন্ডিং এন্ট্রি (<span id="pendingCount">0</span>)</button>
+  </div>
+
+  <!-- TAB 1: DAILY DASHBOARD -->
+  <div id="tab-dashboard" class="tab-content active">
+    <div class="shift-grid">
+      <!-- DAY SHIFT CARD -->
+      <div class="shift-card day">
+        <div class="shift-header">
+          <div>
+            <div class="shift-title">☀️ দিনের শিফট (Day Shift)</div>
+            <div class="sub-breakdown" id="dayBreakdown">জেনারেল: ০ জন | অতিরিক্ত/অফডে: ০ জন</div>
+          </div>
+          <span class="badge-count" id="dayTotalBadge">মোট: ০ জন</span>
+        </div>
+        <ul class="duty-list" id="dayShiftList"></ul>
+      </div>
+
+      <!-- NIGHT SHIFT CARD -->
+      <div class="shift-card night">
+        <div class="shift-header">
+          <div>
+            <div class="shift-title">🌙 রাতের শিফট (Night Shift)</div>
+            <div class="sub-breakdown" id="nightBreakdown">জেনারেল: ০ জন | অতিরিক্ত/অফডে: ০ জন</div>
+          </div>
+          <span class="badge-count" id="nightTotalBadge">মোট: ০ জন</span>
+        </div>
+        <ul class="duty-list" id="nightShiftList"></ul>
+      </div>
+
+      <!-- EXTRA DUTY CARD -->
+      <div class="shift-card extra">
+        <div class="shift-header">
+          <div>
+            <div class="shift-title">⚡ অতিরিক্ত / অফডে / ছুটির ডিউটি</div>
+            <div class="sub-breakdown">সংশ্লিষ্ট শিফটেও যুক্ত আছে</div>
+          </div>
+          <span class="badge-count" id="extraTotalBadge">মোট: ০ জন</span>
+        </div>
+        <ul class="duty-list" id="extraDutyList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: DUTY ENTRY -->
+  <div id="tab-entry" class="tab-content">
+    <div class="card">
+      <h3 style="margin-top:0;">১. জেনারেল শিফট ডিউটি এন্ট্রি (১২ ঘণ্টা = ৮ ঘণ্টা + ৪ ঘণ্টা OT)</h3>
+      <form onsubmit="addGeneralDuty(event)" class="form-grid">
+        <div class="form-group">
+          <label>গার্ড নির্বাচন করুন</label>
+          <select id="genGuardSelect" required></select>
+        </div>
+        <div class="form-group">
+          <label>শিফট</label>
+          <select id="genShift" onchange="autoFillShiftTimes('gen')">
+            <option value="Day">Day Shift (7:30 AM - 7:30 PM)</option>
+            <option value="Night">Night Shift (7:30 PM - 7:30 AM)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>শুরুর সময়</label>
+          <input type="text" id="genStart" value="07:30 AM" required />
+        </div>
+        <div class="form-group">
+          <label>শেষের সময়</label>
+          <input type="text" id="genEnd" value="07:30 PM" required />
+        </div>
+        <div class="form-group">
+          <label>ওভারটাইম (ঘণ্টা)</label>
+          <input type="number" step="0.5" id="genOt" value="4" required />
+        </div>
+        <div class="form-group">
+          <label>নোট / রিপ্লেসমেন্ট তথ্য</label>
+          <input type="text" id="genNote" placeholder="ঐচ্ছিক..." />
+        </div>
+        <div class="form-group">
+          <button type="submit">✅ জেনারেল ডিউটি যোগ করুন</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card" style="border-left: 5px solid #16a34a;">
+      <h3 style="margin-top:0;">২. অতিরিক্ত / অফডে / সরকারি ছুটির ডিউটি এন্ট্রি</h3>
+      <p style="font-size:0.86rem; color:var(--muted); margin-top:-6px;">
+        এখানে <strong>কোন শিফটে (Day / Night)</strong> ডিউটি করছেন তা নির্বাচন করলে, কর্মীটি <strong>অতিরিক্ত ডিউটির ঘরেও</strong> দেখাবে এবং ওই <strong>শিফটের মোট লোকবলেও</strong> যুক্ত হবে।
+      </p>
+      <form onsubmit="addExtraDuty(event)" class="form-grid">
+        <div class="form-group">
+          <label>গার্ড নির্বাচন করুন</label>
+          <select id="extGuardSelect" required></select>
+        </div>
+        <div class="form-group">
+          <label>ডিউটির ধরন</label>
+          <select id="extCategory">
+            <option value="Extra Duty">অতিরিক্ত ডিউটি (Extra Duty)</option>
+            <option value="Off-Day Duty">অফডে ডিউটি (Off-Day Duty)</option>
+            <option value="Govt Holiday Duty">সরকারি ছুটির ডিউটি (Govt Holiday)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>কোন শিফটে ডিউটি করছেন?</label>
+          <select id="extShift" onchange="autoFillShiftTimes('ext')" required>
+            <option value="Day">☀️ দিনের শিফট (Day Shift)</option>
+            <option value="Night">🌙 রাতের শিফট (Night Shift)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>শুরুর সময়</label>
+          <input type="text" id="extStart" value="07:30 AM" required />
+        </div>
+        <div class="form-group">
+          <label>শেষের সময়</label>
+          <input type="text" id="extEnd" value="07:30 PM" required />
+        </div>
+        <div class="form-group">
+          <label>মোট অতিরিক্ত ঘণ্টা (OT)</label>
+          <input type="number" step="0.5" id="extOt" value="12" required />
+        </div>
+        <div class="form-group">
+          <label>বিবরণ / কারণ</label>
+          <input type="text" id="extNote" placeholder="যেমন: অফডে ডিউটি / বদলি ডিউটি" />
+        </div>
+        <div class="form-group">
+          <button type="submit" class="success">⚡ অতিরিক্ত ডিউটি যোগ করুন</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TAB 3: GUARDS MANAGEMENT -->
+  <div id="tab-guards" class="tab-content">
+    <div class="card">
+      <h3 style="margin-top:0;">নতুন গার্ড যোগ করুন</h3>
+      <form onsubmit="addGuard(event)" class="form-grid">
+        <div class="form-group">
+          <label>Employee ID / নম্বর</label>
+          <input type="text" id="guardId" placeholder="যেমন: 101" required />
+        </div>
+        <div class="form-group">
+          <label>গার্ডের নাম</label>
+          <input type="text" id="guardName" placeholder="যেমন: তানভীর" required />
+        </div>
+        <div class="form-group">
+          <label>পদবী</label>
+          <input type="text" id="guardRole" value="Security Guard" />
+        </div>
+        <div class="form-group">
+          <button type="submit">➕ গার্ড সেভ করুন</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">নিবন্ধিত গার্ড তালিকা</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Employee ID</th>
+            <th>নাম</th>
+            <th>পদবী</th>
+            <th>অ্যাকশন</th>
+          </tr>
+        </thead>
+        <tbody id="guardsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 4: PENDING ENTRIES -->
+  <div id="tab-pending" class="tab-content">
+    <div class="card">
+      <h3 style="margin-top:0;">পেন্ডিং / অসম্পূর্ণ এন্ট্রি</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>তারিখ</th>
+            <th>ID ও নাম</th>
+            <th>ধরন</th>
+            <th>শিফট</th>
+            <th>সময়</th>
+            <th>সুপারভাইজার</th>
+            <th>অ্যাকশন</th>
+          </tr>
+        </thead>
+        <tbody id="pendingTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase Config Modal -->
+<div id="fbModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:999;">
+  <div class="card" style="max-width:480px; width:92%;">
+    <h3 style="margin-top:0;">Firebase Realtime Database URL</h3>
+    <p style="font-size:0.85rem; color:var(--muted);">আপনার Firebase Database URL দিলে সব সুপারভাইজারের ডাটা রিয়েল-টাইমে সিঙ্ক হবে। ফাঁকা রাখলে ব্রাউজারে সেভ থাকবে।</p>
+    <input type="text" id="fbUrlInput" style="width:100%; margin-bottom:12px;" placeholder="https://your-project-default-rtdb.firebaseio.com" />
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button class="secondary" onclick="closeConfigModal()">বন্ধ করুন</button>
+      <button onclick="saveFbUrl()">সেভ ও সিঙ্ক করুন</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- STATE & STORAGE ---
+  const STORAGE_KEY = 'guard_shift_system_v2';
+  let state = {
+    guards: [
+      { id: '101', name: 'তানভীর', role: 'Security Guard' },
+      { id: '102', name: 'রহিম', role: 'Security Guard' },
+      { id: '103', name: 'করিম', role: 'Security Guard' },
+      { id: '104', name: 'জামাল', role: 'Security Guard' },
+      { id: '105', name: 'সুমন', role: 'Security Guard' },
+      { id: '106', name: 'আরিফ', role: 'Security Guard' }
+    ],
+    duties: [] // { id, date, empId, empName, type: 'General'|'Extra', category, shift: 'Day'|'Night', start, end, otHours, note, supervisor, status: 'Approved'|'Pending' }
+  };
+
+  let fbUrl = localStorage.getItem('guard_fb_url') || '';
+
+  function loadState() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        state = JSON.parse(saved);
+      } catch (e) { console.error(e); }
+    }
+    const savedSup = localStorage.getItem('guard_supervisor');
+    if (savedSup) document.getElementById('supervisorName').value = savedSup;
+
+    // Set default date to today (local)
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    document.getElementById('selectedDate').value = `${yyyy}-${mm}-${dd}`;
+
+    if (fbUrl) syncFromFirebase();
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (fbUrl) syncToFirebase();
+  }
+
+  function saveSupervisorPref() {
+    localStorage.setItem('guard_supervisor', document.getElementById('supervisorName').value);
+  }
+
+  // --- FIREBASE REST SYNC (Zero-dependency, preserves existing records) ---
+  async function syncFromFirebase() {
+    if (!fbUrl) return;
+    try {
+      const cleanUrl = fbUrl.replace(/\/$/, '') + '/shiftAppData.json';
+      const res = await fetch(cleanUrl);
+      const data = await res.json();
+      if (data && (data.guards || data.duties)) {
+        state.guards = data.guards || state.guards;
+        state.duties = data.duties || [];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        document.getElementById('fbStatus').textContent = '🟢 Firebase Connected';
+        renderAll();
+      }
+    } catch (err) {
+      document.getElementById('fbStatus').textContent = '🟠 Offline (Local Saved)';
+    }
+  }
+
+  async function syncToFirebase() {
+    if (!fbUrl) return;
+    try {
+      const cleanUrl = fbUrl.replace(/\/$/, '') + '/shiftAppData.json';
+      await fetch(cleanUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state)
+      });
+      document.getElementById('fbStatus').textContent = '🟢 Firebase Synced';
+    } catch (err) {
+      document.getElementById('fbStatus').textContent = '🟠 Sync Pending (Local Saved)';
+    }
+  }
+
+  function openConfigModal() {
+    document.getElementById('fbUrlInput').value = fbUrl;
+    document.getElementById('fbModal').style.display = 'flex';
+  }
+  function closeConfigModal() {
+    document.getElementById('fbModal').style.display = 'none';
+  }
+  function saveFbUrl() {
+    fbUrl = document.getElementById('fbUrlInput').value.trim();
+    localStorage.setItem('guard_fb_url', fbUrl);
+    closeConfigModal();
+    if (fbUrl) syncFromFirebase();
+  }
+
+  // --- CORE LOGIC: EFFECTIVE SHIFT DETECTION ---
+  // এই ফাংশনটি নিশ্চিত করে যে জেনারেল ও অতিরিক্ত উভয় ডিউটিই তার নির্ধারিত শিফটে (Day বা Night) গণনা হবে
+  function getEffectiveShift(d) {
+    if (d.shift === 'Day' || d.shift === 'Night') return d.shift;
+    if (d.start) {
+      const s = String(d.start).trim().toUpperCase();
+      if (s.includes('PM')) {
+        const hr = parseInt(s.split(':')[0], 10);
+        if (hr >= 6 && hr < 12) return 'Night';
+      } else if (s.includes('AM')) {
+        const hr = parseInt(s.split(':')[0], 10);
+        if (hr === 12 || hr < 6) return 'Night';
+      } else if (s.includes(':')) {
+        const hr = parseInt(s.split(':')[0], 10);
+        if (hr >= 18 || hr < 6) return 'Night';
+      }
+    }
+    return 'Day';
+  }
+
+  function autoFillShiftTimes(prefix) {
+    const shift = document.getElementById(prefix + 'Shift').value;
+    if (shift === 'Day') {
+      document.getElementById(prefix + 'Start').value = '07:30 AM';
+      document.getElementById(prefix + 'End').value = '07:30 PM';
+    } else {
+      document.getElementById(prefix + 'Start').value = '07:30 PM';
+      document.getElementById(prefix + 'End').value = '07:30 AM';
+    }
+  }
+
+  // --- CRUD OPERATIONS ---
+  function addGeneralDuty(e) {
+    e.preventDefault();
+    const empId = document.getElementById('genGuardSelect').value;
+    const guard = state.guards.find(g => g.id === empId);
+    if (!guard) return alert('গার্ড নির্বাচন করুন');
+
+    const duty = {
+      id: 'duty_' + Date.now(),
+      date: document.getElementById('selectedDate').value,
+      empId: guard.id,
+      empName: guard.name,
+      type: 'General',
+      category: 'General Shift',
+      shift: document.getElementById('genShift').value,
+      start: document.getElementById('genStart').value.trim(),
+      end: document.getElementById('genEnd').value.trim(),
+      otHours: parseFloat(document.getElementById('genOt').value) || 0,
+      note: document.getElementById('genNote').value.trim(),
+      supervisor: document.getElementById('supervisorName').value,
+      status: 'Approved'
+    };
+
+    state.duties.push(duty);
+    saveState();
+    document.getElementById('genNote').value = '';
+    renderAll();
+    switchTab('dashboard', document.querySelector('.tab-btn'));
+  }
+
+  function addExtraDuty(e) {
+    e.preventDefault();
+    const empId = document.getElementById('extGuardSelect').value;
+    const guard = state.guards.find(g => g.id === empId);
+    if (!guard) return alert('গার্ড নির্বাচন করুন');
+
+    const duty = {
+      id: 'duty_' + Date.now(),
+      date: document.getElementById('selectedDate').value,
+      empId: guard.id,
+      empName: guard.name,
+      type: 'Extra',
+      category: document.getElementById('extCategory').value,
+      shift: document.getElementById('extShift').value, // Day বা Night শিফট সেভ হচ্ছে
+      start: document.getElementById('extStart').value.trim(),
+      end: document.getElementById('extEnd').value.trim(),
+      otHours: parseFloat(document.getElementById('extOt').value) || 0,
+      note: document.getElementById('extNote').value.trim(),
+      supervisor: document.getElementById('supervisorName').value,
+      status: 'Approved'
+    };
+
+    state.duties.push(duty);
+    saveState();
+    document.getElementById('extNote').value = '';
+    renderAll();
+    switchTab('dashboard', document.querySelector('.tab-btn'));
+  }
+
+  function toggleExtraShift(dutyId) {
+    const d = state.duties.find(x => x.id === dutyId);
+    if (!d) return;
+    const current = getEffectiveShift(d);
+    d.shift = current === 'Day' ? 'Night' : 'Day';
+    saveState();
+    renderAll();
+  }
+
+  function deleteDuty(dutyId) {
+    if (!confirm('এই ডিউটি রেকর্ডটি মুছে ফেলতে চান?')) return;
+    state.duties = state.duties.filter(d => d.id !== dutyId);
+    saveState();
+    renderAll();
+  }
+
+  function addGuard(e) {
+    e.preventDefault();
+    const id = document.getElementById('guardId').value.trim();
+    const name = document.getElementById('guardName').value.trim();
+    const role = document.getElementById('guardRole').value.trim() || 'Security Guard';
+    if (state.guards.some(g => g.id === id)) {
+      return alert('এই Employee ID ইতিমধ্যে আছে!');
+    }
+    state.guards.push({ id, name, role });
+    saveState();
+    document.getElementById('guardId').value = '';
+    document.getElementById('guardName').value = '';
+    renderAll();
+  }
+
+  function deleteGuard(empId) {
+    if (!confirm('গার্ডকে তালিকা থেকে সরাতে চান?')) return;
+    state.guards = state.guards.filter(g => g.id !== empId);
+    saveState();
+    renderAll();
+  }
+
+  function approvePending(dutyId) {
+    const d = state.duties.find(x => x.id === dutyId);
+    if (d) {
+      d.status = 'Approved';
+      saveState();
+      renderAll();
+    }
+  }
+
+  // --- RENDERING ---
+  function renderAll() {
+    const date = document.getElementById('selectedDate').value;
+    const query = document.getElementById('searchEmp').value.trim().toLowerCase();
+
+    // Populate Guard Dropdowns & Table
+    const genSel = document.getElementById('genGuardSelect');
+    const extSel = document.getElementById('extGuardSelect');
+    const guardsTbody = document.getElementById('guardsTableBody');
+
+    genSel.innerHTML = '';
+    extSel.innerHTML = '';
+    guardsTbody.innerHTML = '';
+
+    state.guards.forEach(g => {
+      const opt1 = new Option(`${g.id} - ${g.name}`, g.id);
+      const opt2 = new Option(`${g.id} - ${g.name}`, g.id);
+      genSel.add(opt1);
+      extSel.add(opt2);
+
+      guardsTbody.innerHTML += `
+        <tr>
+          <td><strong>${g.id}</strong></td>
+          <td>${g.name}</td>
+          <td>${g.role}</td>
+          <td><button class="danger sm" onclick="deleteGuard('${g.id}')">মুছুন</button></td>
+        </tr>
+      `;
+    });
+
+    // Filter duties for selected date
+    const dayDutiesAll = state.duties.filter(d => {
+      if (d.date !== date || d.status === 'Pending') return false;
+      if (query && !d.empId.toLowerCase().includes(query) && !d.empName.toLowerCase().includes(query)) return false;
+      return true;
+    });
+
+    // ১. দিনের শিফট (জেনারেল Day + অতিরিক্ত/অফডে Day উভয়ই অন্তর্ভুক্ত)
+    const dayShiftEntries = dayDutiesAll.filter(d => getEffectiveShift(d) === 'Day');
+    const dayGenCount = dayShiftEntries.filter(d => d.type !== 'Extra').length;
+    const dayExtCount = dayShiftEntries.filter(d => d.type === 'Extra').length;
+
+    // ২. রাতের শিফট (জেনারেল Night + অতিরিক্ত/অফডে Night উভয়ই অন্তর্ভুক্ত)
+    const nightShiftEntries = dayDutiesAll.filter(d => getEffectiveShift(d) === 'Night');
+    const nightGenCount = nightShiftEntries.filter(d => d.type !== 'Extra').length;
+    const nightExtCount = nightShiftEntries.filter(d => d.type === 'Extra').length;
+
+    // ৩. অতিরিক্ত ডিউটির ঘর (সব অতিরিক্ত/অফডে/ছুটির ডিউটি)
+    const extraEntries = dayDutiesAll.filter(d => d.type === 'Extra');
+
+    // Update Badges & Breakdowns
+    document.getElementById('dayTotalBadge').textContent = `মোট: ${dayShiftEntries.length} জন`;
+    document.getElementById('dayBreakdown').textContent = `জেনারেল: ${dayGenCount} জন + অতিরিক্ত/অফডে: ${dayExtCount} জন`;
+
+    document.getElementById('nightTotalBadge').textContent = `মোট: ${nightShiftEntries.length} জন`;
+    document.getElementById('nightBreakdown').textContent = `জেনারেল: ${nightGenCount} জন + অতিরিক্ত/অফডে: ${nightExtCount} জন`;
+
+    document.getElementById('extraTotalBadge').textContent = `মোট: ${extraEntries.length} জন`;
+
+    // Render Day Shift List
+    const dayListEl = document.getElementById('dayShiftList');
+    dayListEl.innerHTML = dayShiftEntries.length ? '' : '<li class="empty-msg">এই তারিখে দিনের শিফটে কোনো এন্ট্রি নেই</li>';
+    dayShiftEntries.forEach(d => {
+      const isExtra = d.type === 'Extra';
+      dayListEl.innerHTML += `
+        <li class="duty-item ${isExtra ? 'is-extra-in-shift' : ''}">
+          <div>
+            <strong>[${d.empId}] ${d.empName}</strong>
+            ${isExtra ? `<span class="tag tag-extra">${d.category || 'অতিরিক্ত ডিউটি'}</span>` : ''}
+            <span class="tag tag-ot">OT: ${d.otHours}h</span>
+            <div style="font-size:0.82rem; color:var(--muted); margin-top:3px;">
+              সময়: ${d.start} - ${d.end} | সুপারভাইজার: ${d.supervisor || '-'}
+              ${d.note ? `<br>নোট: ${d.note}` : ''}
+            </div>
+          </div>
+          <button class="danger sm" onclick="deleteDuty('${d.id}')" title="মুছুন">✕</button>
+        </li>
+      `;
+    });
+
+    // Render Night Shift List
+    const nightListEl = document.getElementById('nightShiftList');
+    nightListEl.innerHTML = nightShiftEntries.length ? '' : '<li class="empty-msg">এই তারিখে রাতের শিফটে কোনো এন্ট্রি নেই</li>';
+    nightShiftEntries.forEach(d => {
+      const isExtra = d.type === 'Extra';
+      nightListEl.innerHTML += `
+        <li class="duty-item ${isExtra ? 'is-extra-in-shift' : ''}">
+          <div>
+            <strong>[${d.empId}] ${d.empName}</strong>
+            ${isExtra ? `<span class="tag tag-extra">${d.category || 'অতিরিক্ত ডিউটি'}</span>` : ''}
+            <span class="tag tag-ot">OT: ${d.otHours}h</span>
+            <div style="font-size:0.82rem; color:var(--muted); margin-top:3px;">
+              সময়: ${d.start} - ${d.end} | সুপারভাইজার: ${d.supervisor || '-'}
+              ${d.note ? `<br>নোট: ${d.note}` : ''}
+            </div>
+          </div>
+          <button class="danger sm" onclick="deleteDuty('${d.id}')" title="মুছুন">✕</button>
+        </li>
+      `;
+    });
+
+    // Render Extra Duty List (অতিরিক্ত ডিউটির ঘর)
+    const extraListEl = document.getElementById('extraDutyList');
+    extraListEl.innerHTML = extraEntries.length ? '' : '<li class="empty-msg">এই তারিখে কোনো অতিরিক্ত ডিউটি নেই</li>';
+    extraEntries.forEach(d => {
+      const effShift = getEffectiveShift(d);
+      const shiftLabel = effShift === 'Day' ? '☀️ Day Shift-এ যুক্ত' : '🌙 Night Shift-এ যুক্ত';
+      extraListEl.innerHTML += `
+        <li class="duty-item is-extra-in-shift">
+          <div>
+            <strong>[${d.empId}] ${d.empName}</strong>
+            <span class="tag tag-extra">${d.category || 'অতিরিক্ত'}</span>
+            <span class="tag tag-shift">${shiftLabel}</span>
+            <div style="font-size:0.82rem; color:var(--muted); margin-top:3px;">
+              সময়: ${d.start} - ${d.end} | OT: ${d.otHours} ঘণ্টা
+              ${d.note ? `<br>বিবরণ: ${d.note}` : ''}
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <button class="secondary sm" onclick="toggleExtraShift('${d.id}')" title="শিফট পরিবর্তন করুন">শিফট বদলান</button>
+            <button class="danger sm" onclick="deleteDuty('${d.id}')">মুছুন</button>
+          </div>
+        </li>
+      `;
+    });
+
+    // Pending entries
+    const pendingList = state.duties.filter(d => d.status === 'Pending');
+    document.getElementById('pendingCount').textContent = pendingList.length;
+    const pendingTbody = document.getElementById('pendingTableBody');
+    pendingTbody.innerHTML = pendingList.length ? '' : '<tr><td colspan="7" class="empty-msg">কোনো পেন্ডিং এন্ট্রি নেই</td></tr>';
+    pendingList.forEach(d => {
+      pendingTbody.innerHTML += `
+        <tr>
+          <td>${d.date}</td>
+          <td>[${d.empId}] ${d.empName}</td>
+          <td>${d.category || d.type}</td>
+          <td>${getEffectiveShift(d)}</td>
+          <td>${d.start} - ${d.end}</td>
+          <td>${d.supervisor || '-'}</td>
+          <td>
+            <button class="success sm" onclick="approvePending('${d.id}')">অনুমোদন</button>
+            <button class="danger sm" onclick="deleteDuty('${d.id}')">মুছুন</button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  function switchTab(tabId, btnEl) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    if (btnEl) btnEl.classList.add('active');
+  }
+
+  // --- EXCEL EXPORT (Combined Summary + Per-Employee Sheets) ---
+  function exportMonthlyExcel() {
+    if (typeof XLSX === 'undefined') {
+      return alert('Excel লাইব্রেরি লোড হয়নি। ইন্টারনেট সংযোগ চেক করুন।');
+    }
+    const selectedDate = document.getElementById('selectedDate').value;
+    const monthPrefix = selectedDate.slice(0, 7); // YYYY-MM
+    const monthDuties = state.duties.filter(d => d.date && d.date.startsWith(monthPrefix) && d.status !== 'Pending');
+
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Combined Summary
+    const summaryRows = state.guards.map(g => {
+      const gDuties = monthDuties.filter(d => d.empId === g.id);
+      const genDays = gDuties.filter(d => d.type !== 'Extra').length;
+      const extraDays = gDuties.filter(d => d.type === 'Extra').length;
+      const totalOt = gDuties.reduce((sum, d) => sum + (parseFloat(d.otHours) || 0), 0);
+      return {
+        'Employee ID': g.id,
+        'নাম': g.name,
+        'পদবী': g.role,
+        'জেনারেল ডিউটি (দিন)': genDays,
+        'অতিরিক্ত/অফডে ডিউটি (দিন)': extraDays,
+        'মোট ডিউটি (দিন)': genDays + extraDays,
+        'মোট ওভারটাইম (ঘণ্টা)': totalOt
+      };
+    });
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Monthly_Summary');
+
+    // Individual Employee Sheets
+    state.guards.forEach(g => {
+      const gDuties = monthDuties
+        .filter(d => d.empId === g.id)
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      const rows = gDuties.map(d => ({
+        'তারিখ': d.date,
+        'ডিউটির ধরন': d.category || d.type,
+        'শিফট': getEffectiveShift(d),
+        'শুরুর সময়': d.start,
+        'শেষের সময়': d.end,
+        'ওভারটাইম (ঘণ্টা)': d.otHours,
+        'বিবরণ / নোট': d.note || '',
+        'সুপারভাইজার': d.supervisor || ''
+      }));
+
+      if (rows.length === 0) {
+        rows.push({ 'তারিখ': monthPrefix, 'ডিউটির ধরন': 'কোনো ডিউটি রেকর্ড নেই' });
+      }
+      const sheetName = `${g.id}_${g.name}`.slice(0, 31);
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    XLSX.writeFile(wb, `Security_Attendance_${monthPrefix}.xlsx`);
+  }
+
+  // Initialize
+  loadState();
+  renderAll();
+</script>
+</body>
+</html>
