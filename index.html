@@ -188,15 +188,16 @@
         <small>অনুমোদিত অতিরিক্ত ডিউটি</small>
         <strong id="sExtraDuty">0</strong>
       </div>
-      <div class="stat-card hidden" id="statCardManpower" style="text-align:left; padding:10px 12px; border-color:#93c5fd;">
-        <small style="text-align:center; color:#1e3a8a; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px;">জনবল ও বাজেট (বাজেট: ১৯ জন)</small>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px 8px; font-size:12px;">
-          <div>মোট ডিউটি: <strong id="sManpowerDuty" style="font-size:13px; color:#0f172a;">0</strong></div>
-          <div>মোট ছুটি: <strong id="sManpowerLeave" style="font-size:13px; color:#b45309;">0</strong></div>
-          <div>মোট অফডে: <strong id="sManpowerOffday" style="font-size:13px; color:#15803d;">0</strong></div>
-          <div>মোট জনবল: <strong id="sManpowerTotal" style="font-size:13px; color:#1d4ed8;">0</strong></div>
+      <div class="stat-card hidden" id="statCardManpower" style="text-align:left; padding:10px 14px; border-color:#93c5fd; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#eff6ff 100%); box-shadow:0 3px 10px rgba(29,78,216,0.08);">
+        <small style="text-align:center; color:#1d4ed8; font-weight:700; font-size:12.5px; border-bottom:1px solid #dbeafe; padding-bottom:5px; margin-bottom:7px;">জনবল ও বাজেট (বাজেট: ১৯ জন)</small>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px 10px; font-size:12.5px; align-items:center;">
+          <div style="white-space:nowrap;">মোট ডিউটি: <strong id="sManpowerDuty" style="font-size:13.5px; color:#0f172a;">0</strong></div>
+          <div style="white-space:nowrap;">মোট ছুটি: <strong id="sManpowerLeave" style="font-size:13.5px; color:#d97706;">0</strong></div>
+          <div style="white-space:nowrap;">মোট অফডে: <strong id="sManpowerOffday" style="font-size:13.5px; color:#16a34a;">0</strong></div>
+          <div style="white-space:nowrap;">মোট জনবল: <strong id="sManpowerTotal" style="font-size:13.5px; color:#2563eb;">0</strong></div>
         </div>
-        <div id="sManpowerShortage" style="margin-top:6px; padding-top:4px; border-top:1px solid #e2e8f0; text-align:center; font-size:12px; font-weight:700; color:#b91c1c;">১৯ জন কম আছে</div>
+        <div id="sManpowerOffdayBreakdown" style="margin-top:5px; padding-top:4px; border-top:1px dashed #cbd5e1; text-align:center; font-size:11.5px; font-weight:600; color:#334155;">অফডে ডিউটি: <strong id="sOffdayWorking" style="color:#b45309;">0</strong> | অফডেতে আছেন: <strong id="sOffdayRest" style="color:#15803d;">0</strong></div>
+        <div id="sManpowerShortage" style="margin-top:5px; padding-top:5px; border-top:1px solid #dbeafe; text-align:center; font-size:13px; font-weight:800; color:#dc2626;">১৯ জন কম আছে</div>
       </div>
     </div>
 
@@ -2133,9 +2134,9 @@ function renderDailyExtraTracker() {
             const mins = calcExtraDutyMinutes(d);
             return `<tr>
               <td><strong>${esc(d.name)}</strong> (${esc(d.empId)})</td>
-              <td><strong>${getDutyShift(d)} Shift</strong><br><span class="pill pending">${esc(d.subType || 'অতিরিক্ত ডিউটি')}</span></td>
+              <td><strong>${getDutyShift(d)} Shift</strong><br><span class="pill pending">${esc(d.subType || 'অতিরিক্ত ডিউটি')}</span>${d.place ? `<br><small style="color:#0369a1;font-weight:600;">স্থান: ${esc(d.place)}</small>` : ''}</td>
               <td>${formatTime12h(d.start)} → ${formatTime12h(d.end)} (<strong>${formatMinutesToHHMM(mins)} ঘ.</strong>)</td>
-              <td style="color:#0f2544; font-weight:500;">${esc(d.note || 'উল্লেখ নেই')}</td>
+              <td style="color:#0f2544; font-weight:500;">${esc(d.note || d.place || 'উল্লেখ নেই')}${d.place && d.note && d.place !== d.note ? `<br><small style="color:#0369a1;">স্থান: ${esc(d.place)}</small>` : ''}</td>
               <td>${d.checkInTime ? `ইন: ${esc(d.checkInTime)}` : '—'} ${d.checkOutTime ? `<br>আউট: ${esc(d.checkOutTime)}` : ''}</td>
               <td><span class="sup-badge">${esc(d.enteredBy || 'System')}</span></td>
               <td><span class="pill ${d.status === 'Approved' ? 'approved' : 'chart-ok'}">${d.status === 'Approved' ? 'Final Approved' : 'Chart Approved'}</span></td>
@@ -3464,6 +3465,15 @@ function render() {
         dutyEmpSet.add(idKey);
         activeEmpSet.add(idKey);
       }
+      const adj = calculateReliefAndLeaveAdjustments(d);
+      const rel = getReliefTimingAndProof(d);
+      if (adj.hasValidRelief && (adj.reliefAddedMins + rel.postShiftReliefMins) > 0) {
+        const relKey = adj.reliefEmpId.trim().toLowerCase();
+        if (relKey) {
+          dutyEmpSet.add(relKey);
+          activeEmpSet.add(relKey);
+        }
+      }
     }
   });
   const leaveEmpSet = new Set();
@@ -3487,6 +3497,12 @@ function render() {
     }
   });
 
+  let offdayWorkingCount = 0;
+  offdayEmpSet.forEach(offKey => {
+    if (dutyEmpSet.has(offKey)) offdayWorkingCount++;
+  });
+  const offdayNotWorkingCount = Math.max(0, offdayEmpSet.size - offdayWorkingCount);
+
   const totalDutyCount = dutyEmpSet.size;
   const totalLeaveCount = leaveEmpSet.size;
   const totalOffdayCount = offdayEmpSet.size;
@@ -3498,6 +3514,8 @@ function render() {
     document.getElementById('sManpowerLeave').textContent = totalLeaveCount;
     document.getElementById('sManpowerOffday').textContent = totalOffdayCount;
     document.getElementById('sManpowerTotal').textContent = totalManpowerCount;
+    if (document.getElementById('sOffdayWorking')) document.getElementById('sOffdayWorking').textContent = offdayWorkingCount;
+    if (document.getElementById('sOffdayRest')) document.getElementById('sOffdayRest').textContent = offdayNotWorkingCount;
     const shortageEl = document.getElementById('sManpowerShortage');
     if (shortageCount > 0) {
       shortageEl.textContent = `${shortageCount} জন কম আছে`;
@@ -3530,7 +3548,7 @@ function render() {
     const rel = getReliefTimingAndProof(x);
     const nightDed = calcNightEarlyCheckoutDeductionMinutes(x);
     const extraInfo = isExtra
-      ? `${formatMinutesToHHMM(calcExtraDutyMinutes(x))} ঘ. (${x.subType || 'অতিরিক্ত'} - ${getDutyShift(x)})`
+      ? `${formatMinutesToHHMM(calcExtraDutyMinutes(x))} ঘ. (${x.subType || 'অতিরিক্ত'} - ${getDutyShift(x)})${x.place ? `<br><small style="color:#0369a1;font-weight:600;">স্থান: ${esc(x.place)}</small>` : ''}`
       : ((adj.hasEarlyLeave || rel.totalReliefMins > 0)
           ? `${adj.hasEarlyLeave ? `কম: ${formatMinutesToHHMM(adj.deductedMins)} ঘ.` : ''}${adj.hasValidRelief ? `${adj.hasEarlyLeave ? ' | ' : ''}বদলী: +${formatMinutesToHHMM(adj.reliefAddedMins + rel.postShiftReliefMins)} ঘ. (${esc(adj.reliefName)} - ${esc(adj.reliefEmpId)})` : (rel.totalReliefMins > 0 ? `${adj.hasEarlyLeave ? ' | ' : ''}বদলী: +${formatMinutesToHHMM(rel.totalReliefMins)} ঘ.` : ' (বদলী নেই - যুক্ত হয়নি)')}`
           : (nightDed > 0 ? `নাইট আউট কম: ${formatMinutesToHHMM(nightDed)} ঘ.` : '—'));
@@ -3647,7 +3665,7 @@ function render() {
     const rel = getReliefTimingAndProof(x);
     const nightDed = calcNightEarlyCheckoutDeductionMinutes(x);
     const extraCol = isExtra
-      ? `<span class="pill pending">${esc(x.subType || 'অতিরিক্ত ডিউটি')}</span><br><small><strong>${formatMinutesToHHMM(calcExtraDutyMinutes(x))} ঘণ্টা</strong></small>`
+      ? `<span class="pill pending">${esc(x.subType || 'অতিরিক্ত ডিউটি')}</span><br><small><strong>${formatMinutesToHHMM(calcExtraDutyMinutes(x))} ঘণ্টা</strong></small>${x.place ? `<br><small style="color:#0369a1;font-weight:600;">স্থান: ${esc(x.place)}</small>` : ''}`
       : ((adj.hasEarlyLeave || rel.totalReliefMins > 0)
           ? `${adj.hasEarlyLeave ? `<span class="pill day-offduty">কম: ${formatMinutesToHHMM(adj.deductedMins)} ঘ.</span>` : ''}${adj.hasValidRelief ? `<br><small>বদলী: <strong>${esc(adj.reliefName)}</strong> (নং: <strong>${esc(adj.reliefEmpId)}</strong>) (+${formatMinutesToHHMM(adj.reliefAddedMins + rel.postShiftReliefMins)} ঘ.)</small>` : (rel.totalReliefMins > 0 ? `<br><small>বদলী অতিরিক্ত: +${formatMinutesToHHMM(rel.totalReliefMins)} ঘ.</small>` : '<br><small class="muted">বদলী নেই (যুক্ত হয়নি)</small>')}`
           : (nightDed > 0 ? `<span class="pill day-offduty">নাইট আউট কম: ${formatMinutesToHHMM(nightDed)} ঘ.</span>` : `<span class="muted">নেই (অটো ওটি: ${x.autoOT || 4} ঘ.)</span>`));
@@ -3841,7 +3859,8 @@ function render() {
         : `${formatMinutesToHHMM(calcAdjustedDutyMinutes(d))} ঘ. (জেনারেল ওটি)${adj.hasEarlyLeave ? ` [-${formatMinutesToHHMM(adj.deductedMins)} ঘ.]` : ''}${nightDed > 0 ? ` [-${formatMinutesToHHMM(nightDed)} ঘ.]` : ''}`;
       const fl = getFirstInAndLastOutForEmployeeDate(d.empId, d.date, repDuties);
       const inOut = `${fl.firstInStr || d.checkInTime || formatTime12h(d.start)} → ${fl.lastOutStr || d.checkOutTime || formatTime12h(d.end)}`;
-      const noteText = `${d.note || d.place}${adj.hasEarlyLeave ? ` | বদলী: ${adj.reliefName} (নং: ${adj.reliefEmpId})` : ''}${nightDed > 0 ? ` | নাইট আউট সকাল ৭:৩০ এর আগে` : ''}`;
+      const placePrefix = isExtra && d.place && d.note && d.place !== d.note ? `[স্থান: ${d.place}] ` : '';
+      const noteText = `${placePrefix}${d.note || d.place}${adj.hasEarlyLeave ? ` | বদলী: ${adj.reliefName} (নং: ${adj.reliefEmpId})` : ''}${nightDed > 0 ? ` | নাইট আউট সকাল ৭:৩০ এর আগে` : ''}`;
       return `<tr>
         <td>${d.dayName || getDayName(d.date)}</td>
         <td>${d.date}</td>
