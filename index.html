@@ -188,6 +188,16 @@
         <small>অনুমোদিত অতিরিক্ত ডিউটি</small>
         <strong id="sExtraDuty">0</strong>
       </div>
+      <div class="stat-card" id="statCardManpower" style="text-align:left; padding:10px 12px; border-color:#93c5fd;">
+        <small style="text-align:center; color:#1e3a8a; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px;">জনবল ও বাজেট (বাজেট: ১৯ জন)</small>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px 8px; font-size:12px;">
+          <div>মোট ডিউটি: <strong id="sManpowerDuty" style="font-size:13px; color:#0f172a;">0</strong></div>
+          <div>মোট ছুটি: <strong id="sManpowerLeave" style="font-size:13px; color:#b45309;">0</strong></div>
+          <div>মোট অফডে: <strong id="sManpowerOffday" style="font-size:13px; color:#15803d;">0</strong></div>
+          <div>মোট জনবল: <strong id="sManpowerTotal" style="font-size:13px; color:#1d4ed8;">0</strong></div>
+        </div>
+        <div id="sManpowerShortage" style="margin-top:6px; padding-top:4px; border-top:1px solid #e2e8f0; text-align:center; font-size:12px; font-weight:700; color:#b91c1c;">১৯ জন কম আছে</div>
+      </div>
     </div>
 
     <!-- Admin Live Today Shift Overview right on Home Dashboard -->
@@ -3395,7 +3405,7 @@ function render() {
 
   document.getElementById('statCardExtra').classList.toggle('hidden', !isAdmin);
   if (isAdmin) document.getElementById('statCardExtra').classList.add('admin-clickable');
-  document.getElementById('mainStatsGrid').style.gridTemplateColumns = isAdmin ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)';
+  document.getElementById('mainStatsGrid').style.gridTemplateColumns = isAdmin ? 'repeat(6, 1fr)' : 'repeat(5, 1fr)';
 
   document.getElementById('homeLiveShiftPanel').classList.toggle('hidden', !isAdmin);
   if (isAdmin) {
@@ -3440,6 +3450,65 @@ function render() {
   document.getElementById('sPGD').textContent = (db.duties || []).filter(x => x.status === 'Pending' || x.status === 'ChartApproved').length;
   document.getElementById('sExtraDuty').textContent = (db.duties || []).filter(x => x.type === 'Extra' && (x.status === 'ChartApproved' || x.status === 'Approved')).length;
   document.getElementById('sPL').textContent = (db.leaves || []).filter(x => x.status === 'Pending' || x.recommendation === 'Pending').length;
+
+  // ৬ষ্ঠ ঘর: আজকের মোট ডিউটি, মোট ছুটি, মোট অফডে, মোট জনবল ও ১৯ জনের বাজেটের ঘাটতি হিসাব
+  const BUDGET_MANPOWER = 19;
+  const todayDayName = getDayName(bdToday);
+  const activeEmpSet = new Set();
+  const dutyEmpSet = new Set();
+  (db.duties || []).forEach(d => {
+    if (d.date === bdToday && (d.status === 'ChartApproved' || d.status === 'Approved')) {
+      const idKey = String(d.empId || '').trim().toLowerCase();
+      if (idKey) {
+        dutyEmpSet.add(idKey);
+        activeEmpSet.add(idKey);
+      }
+    }
+  });
+  const leaveEmpSet = new Set();
+  (db.leaves || []).forEach(l => {
+    if (l.status === 'Approved' && bdToday >= l.from && bdToday <= l.to) {
+      const idKey = String(l.empId || '').trim().toLowerCase();
+      if (idKey) {
+        leaveEmpSet.add(idKey);
+        activeEmpSet.add(idKey);
+      }
+    }
+  });
+  const offdayEmpSet = new Set();
+  (db.offdays || []).forEach(o => {
+    if (o.status === 'Approved' && o.englishDay === todayDayName) {
+      const idKey = String(o.empId || '').trim().toLowerCase();
+      if (idKey) {
+        offdayEmpSet.add(idKey);
+        activeEmpSet.add(idKey);
+      }
+    }
+  });
+
+  const totalDutyCount = dutyEmpSet.size;
+  const totalLeaveCount = leaveEmpSet.size;
+  const totalOffdayCount = offdayEmpSet.size;
+  const totalManpowerCount = activeEmpSet.size;
+  const shortageCount = BUDGET_MANPOWER - totalManpowerCount;
+
+  if (document.getElementById('sManpowerDuty')) {
+    document.getElementById('sManpowerDuty').textContent = totalDutyCount;
+    document.getElementById('sManpowerLeave').textContent = totalLeaveCount;
+    document.getElementById('sManpowerOffday').textContent = totalOffdayCount;
+    document.getElementById('sManpowerTotal').textContent = totalManpowerCount;
+    const shortageEl = document.getElementById('sManpowerShortage');
+    if (shortageCount > 0) {
+      shortageEl.textContent = `${shortageCount} জন কম আছে`;
+      shortageEl.style.color = '#b91c1c';
+    } else if (shortageCount === 0) {
+      shortageEl.textContent = 'জনবল পূর্ণ আছে (১৯/১৯)';
+      shortageEl.style.color = '#15803d';
+    } else {
+      shortageEl.textContent = `${Math.abs(shortageCount)} জন অতিরিক্ত আছে`;
+      shortageEl.style.color = '#1d4ed8';
+    }
+  }
 
   document.getElementById('govtHolidayRows').innerHTML = (db.govtHolidays || []).map(g => `
     <tr>
